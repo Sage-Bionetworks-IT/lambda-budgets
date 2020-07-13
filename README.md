@@ -1,12 +1,5 @@
-# lambda-template
-Template for creating lambda repositories
-A template for quickly starting a new AWS lambda project.
-
-## Naming
-Naming conventions:
-* for a vanilla Lambda: `lambda-<context>`
-* for a Cloudformation Transform macro: `cfn-transform-<context>`
-* for a Cloudformation Custom Resource: `cfn-cr-<context>`
+# lambda-budgets
+Lambda that runs on a cron to create AWS Budgets.
 
 ## Development
 
@@ -57,9 +50,9 @@ This requires the correct permissions to upload to bucket
 ```shell script
 sam package --template-file .aws-sam/build/template.yaml \
   --s3-bucket essentials-awss3lambdaartifactsbucket-x29ftznj6pqw \
-  --output-template-file .aws-sam/build/lambda-template.yaml
+  --output-template-file .aws-sam/build/lambda-budgets.yaml
 
-aws s3 cp .aws-sam/build/lambda-template.yaml s3://bootstrap-awss3cloudformationbucket-19qromfd235z9/lambda-template/master/
+aws s3 cp .aws-sam/build/lambda-budgets.yaml s3://bootstrap-awss3cloudformationbucket-19qromfd235z9/lambda-budgets/master/
 ```
 
 ## Install Lambda into AWS
@@ -67,20 +60,20 @@ Create the following [sceptre](https://github.com/Sceptre/sceptre) file
 
 config/prod/lambda-template.yaml
 ```yaml
-template_path: "remote/lambda-template.yaml"
-stack_name: "lambda-template"
+template_path: "remote/lambda-budgets.yaml"
+stack_name: "lambda-budgets"
 stack_tags:
   Department: "Platform"
   Project: "Infrastructure"
   OwnerEmail: "it@sagebase.org"
 hooks:
   before_launch:
-    - !cmd "curl https://s3.amazonaws.com/bootstrap-awss3cloudformationbucket-19qromfd235z9/lambda-template/master/lambda-template.yaml --create-dirs -o templates/remote/lambda-template.yaml"
+    - !cmd "curl https://s3.amazonaws.com/bootstrap-awss3cloudformationbucket-19qromfd235z9/lambda-template/master/lambda-budgets.yaml --create-dirs -o templates/remote/lambda-budgets.yaml"
 ```
 
 Install the lambda using sceptre:
 ```shell script
-sceptre --var "profile=my-profile" --var "region=us-east-1" launch prod/lambda-template.yaml
+sceptre --var "profile=my-profile" --var "region=us-east-1" launch prod/lambda-budgets.yaml
 ```
 
 ## Author
