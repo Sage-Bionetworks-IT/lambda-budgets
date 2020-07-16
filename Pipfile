@@ -8,11 +8,13 @@ pylint = "*"
 pytest = "*"
 pytest-mock = "*"
 pre-commit = "*"
+responses = "*"
 
 [packages]
 aws-sam-cli = "*"
 boto3 = "*"
 botocore = "*"
+requests = "*"
 
 [requires]
 python_version = "3.6"
