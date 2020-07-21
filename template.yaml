@@ -15,10 +15,10 @@ Resources:
       Runtime: python3.6
       Role: !GetAtt BudgetMakerFunctionRole.Arn
       Events:
-        OneMinute: # Trigger every minute
+        FiveMinute: # Trigger every five minutes
           Type: Schedule
           Properties:
-            Schedule: rate(1 minute)
+            Schedule: rate(5 minute)
 
   BudgetMakerFunctionRole:
     Type: AWS::IAM::Role

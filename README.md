@@ -23,7 +23,7 @@ $ sam build --use-container
 ### Run locally
 
 ```shell script
-$ sam local invoke HelloWorldFunction --event events/event.json
+$ sam local invoke BudgetMakerFunction --event events/event.json
 ```
 
 ### Run unit tests
