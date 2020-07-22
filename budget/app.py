@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import traceback
 
 import boto3
 from botocore.exceptions import ClientError
@@ -8,38 +10,67 @@ import requests
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
-# TODO configure this URL?
-SYNAPSE_TEAM_MEMBER_URL = 'https://repo-prod.prod.sagebase.org/repo/v1/teamMembers'
-
-# TODO pull this config from S3?
-USER_BUDGET_BY_TEAM = {
-  '12345': {
-    'amount': 2000,
-    'period': 'annual'
+# TEAM_BUDGET_RULES contains configuration for creating a budget for each user
+# on a team. For example, the dictionary at TEAM_BUDGET_RULES['teams']['3412821']
+# contains a value of '10' for amount. For each user in that team, a budget will
+# be created for that user's activity only, with a limit of that amount.
+TEAM_BUDGET_RULES = {
+  'teams': {
+    '3412821': {
+      #'amount': '2000',
+      'amount': '10',
+      'period': 'ANNUALLY',
+      'community_manager_emails': ['tess.thyer@sagebase.org']
+    }
   },
-  '67890': {
-    'amount': 100,
-    'period': 'annual'
+  'thresholds': {
+    'notify_user_only': [25.0, 50.0, 80.0],
+    'notify_admins_too': [90.0, 100.0, 110.0]
   }
 }
+
+BUDGET_NAME_PREFIX = 'service-catalog_'
+
+configuration = {}
+
+
+def _get_env_var(name):
+  value = os.getenv(name)
+  if not value:
+    raise ValueError(('Lambda configuration error: '
+      f'missing environment variable {name}'))
+  return value
+
+
+def _set_configuration():
+  configuration['account_id'] = _get_env_var('AWS_ACCOUNT_ID')
+  configuration['synapse_team_member_list_endpoint'] = _get_env_var('SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT')
+  configuration['notification_topic_arn'] = _get_env_var('NOTIFICATION_TOPIC_ARN')
+
+
+def _get_synapse_team_member_url(team_id):
+  return f'{configuration["synapse_team_member_list_endpoint"]}/{team_id}'
 
 
 def get_client(service):
   return boto3.client(service)
 
 
-def get_users_by_team(teams):
+def get_users(teams):
   '''Get users from synapse teams
 
   Returns a dictionary of users with a list of their team memberships
   '''
   teams_by_user_id = {}
   for team_id in teams:
-    synapse_url = f'{SYNAPSE_TEAM_MEMBER_URL}/{team_id}'
+    synapse_url = _get_synapse_team_member_url(team_id)
     response = requests.get(synapse_url)
     if response.ok:
       results = json.loads(response.text)['results']
-      user_ids = [result['member']['ownerId'] for result in results if not result['isAdmin']]
+      user_ids = [
+        result['member']['ownerId']
+        for result in results if not result['isAdmin']
+      ]
     else:
       response.raise_for_status()
     for user_id in user_ids:
@@ -67,29 +98,32 @@ def check_user_duplicates(teams_by_user_id):
     ])
 
 
-def compare_budgets_and_users(account_id, users):
+def compare_budgets_and_users(users):
   '''Finds users who lack a budget
 
-  This checks budget names, which will use the format
-  f'service-catalog_{synapse_id}', against the user list,
+  This checks budget names against the user list,
   returning a list of user ids that need a budget to be made
   '''
   budgets_client = get_client('budgets')
 
   # get budgets
   budgets = budgets_client.describe_budgets(
-    AccountId=account_id
+    AccountId=configuration['account_id']
     ).get('Budgets')
 
-  # get just the budget names
-  service_catalog_budget_names = [
-    budget['BudgetName'] for budget in budgets
-    if budget['BudgetName'].startswith('service-catalog_')
-  ]
+  # get just the Service Catalog budget names
+  service_catalog_budget_names = []
+  if budgets:
+    service_catalog_budget_names = [
+      budget['BudgetName'] for budget in budgets
+      if budget['BudgetName'].startswith(BUDGET_NAME_PREFIX)
+    ]
+  log.debug(f'Service Catalog budget names: {service_catalog_budget_names}')
 
   # derive user ids from budget names
   service_catalog_budgets_user_ids = set([
-    budget_name.split('_')[1] for budget_name in service_catalog_budget_names
+    budget_name.split(BUDGET_NAME_PREFIX)[1]
+    for budget_name in service_catalog_budget_names
   ])
 
   users = set(users)
@@ -106,8 +140,95 @@ def compare_budgets_and_users(account_id, users):
 
 def create_budget(synapse_id, team):
   '''Creates an AWS budget for a synapse user id'''
-  # TODO implement
-  log.info('Placeholder -- this will make a budget')
+  log.debug(f'Creating budget for synapse user {synapse_id}, member of team {team}')
+
+  team_budget_rules = TEAM_BUDGET_RULES.get('teams').get(team)
+  if not team_budget_rules:
+    raise ValueError(f'No budget rules available for team {team}')
+  budget_amount = team_budget_rules['amount']
+  budget_period = team_budget_rules['period']
+  budget = {
+    'BudgetName': f'{BUDGET_NAME_PREFIX}{synapse_id}',
+    'BudgetLimit': {
+      'Amount': budget_amount,
+      'Unit': 'USD'
+    },
+    'CostFilters': {
+      'TagKeyValue': [
+        (
+          'aws:servicecatalog:provisioningPrincipalArn$arn:aws:sts::'
+          f'{configuration["account_id"]}:assumed-role/ServiceCatalogEndusers/{synapse_id}'
+        )
+      ]
+    },
+    'CostTypes': {
+      'IncludeRefund': False,
+      'IncludeCredit': False
+    },
+    'TimeUnit': budget_period,
+    'BudgetType': 'COST'
+  }
+  budgets_client = get_client('budgets')
+  return budgets_client.create_budget(
+    AccountId=configuration['account_id'],
+    Budget=budget
+    )
+
+
+def _create_budget_notification(synapse_id, threshold, admin_emails=None):
+  '''Creates a notification rule when the budget crosses a particular threshold.
+
+  May have multiple recipients. User notifications are sent through SNS
+  in order to send email to Synapse addresses, which cannot receive email
+  unless sent through the Synapse system, but emails to administrators can
+  be sent directly.
+  '''
+  budgets_client = get_client('budgets')
+  budget_name = f'{BUDGET_NAME_PREFIX}{synapse_id}'
+  subscribers = []
+  # add admin subscription through email if admin_emails were included
+  if admin_emails:
+    subscribers = [{
+      'SubscriptionType': 'EMAIL',
+      'Address': address
+    } for address in admin_emails]
+  # add sns subscription for the user
+  subscribers.append({
+    'SubscriptionType': 'SNS',
+    'Address': configuration['notification_topic_arn']
+    })
+
+  return budgets_client.create_notification(
+      AccountId=configuration['account_id'],
+      BudgetName=budget_name,
+      Notification={
+          'NotificationType': 'ACTUAL',
+          'ComparisonOperator': 'GREATER_THAN',
+          'Threshold': threshold,
+          'ThresholdType': 'PERCENTAGE',
+          'NotificationState': 'ALARM'
+      },
+      Subscribers=subscribers
+  )
+
+
+def create_budget_notifications(synapse_id, team):
+  '''Creates notifications for a particular budget'''
+  budget_name = f'{BUDGET_NAME_PREFIX}{synapse_id}'
+  thresholds = TEAM_BUDGET_RULES['thresholds']
+
+  for threshold in thresholds['notify_user_only']:
+    _create_budget_notification(
+      synapse_id,
+      threshold
+    )
+
+  for threshold in thresholds['notify_admins_too']:
+    _create_budget_notification(
+      synapse_id,
+      threshold,
+      admin_emails=TEAM_BUDGET_RULES['teams'][team]['community_manager_emails']
+    )
 
 
 def create_budgets(user_ids_without_budget, teams_by_user_id):
@@ -116,15 +237,21 @@ def create_budgets(user_ids_without_budget, teams_by_user_id):
   for synapse_id in user_ids_without_budget:
     team = teams_by_user_id[synapse_id][0]
     create_budget(synapse_id, team)
+    create_budget_notifications(synapse_id, team)
     new_budgets_created.append(synapse_id)
 
-  return f'Budgets created: {"none" if not new_budgets_created else ", ".join(new_budgets_created)}'
+  return (
+    'Budgets created for synapse ids: '
+    f'{"none" if not new_budgets_created else ", ".join(new_budgets_created)}'
+  )
 
 
 def delete_budgets(synapse_ids):
   # TODO implement
   budgets_removed = []
-  return f'Budgets removed for synapse_ids: {"none" if not budgets_removed else ", ".join(budgets_removed)}'
+  return ('Budgets removed for synapse_ids: '
+    f'{"none" if not budgets_removed else ", ".join(budgets_removed)}'
+  )
 
 
 def lambda_handler(event, context):
@@ -132,9 +259,12 @@ def lambda_handler(event, context):
   log.debug('Event received: ' + json.dumps(event))
 
   try:
+    _set_configuration()
+    # TODO validate TEAM_BUDGET_RULES schema here
+
     # get users
-    teams = []
-    teams_by_user_id = get_users_by_team(teams)
+    teams = TEAM_BUDGET_RULES.get('teams').keys()
+    teams_by_user_id = get_users(teams)
 
     # verify that no users appear in multiple teams
     duplicates = check_user_duplicates(teams_by_user_id)
@@ -142,9 +272,7 @@ def lambda_handler(event, context):
       log.warn(f'One or more duplicate team memberships was found.\n{duplicates}')
 
     # check which user ids need a budget, and which budgets should be removed
-    account_id = '465877038949'  # TODO make account_id configurable
     user_ids_without_budget, budgets_to_remove = compare_budgets_and_users(
-      account_id,
       teams_by_user_id.keys()
     )
 
@@ -167,10 +295,8 @@ def lambda_handler(event, context):
     }
 
   except Exception as e:
-    failure_message = f'Error: {e}'
-
-    log.error(failure_message)
+    log.error(e, exc_info=True)
 
     return {
-      'error': failure_message
+      'error': str(e)
     }
