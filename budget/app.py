@@ -34,6 +34,11 @@ BUDGET_NAME_PREFIX = 'service-catalog_'
 configuration = {}
 
 
+
+def _get_budget_name(synapse_id):
+  return f'{BUDGET_NAME_PREFIX}{synapse_id}'
+
+
 def _get_env_var(name):
   value = os.getenv(name)
   if not value:
@@ -50,6 +55,7 @@ def _set_configuration():
 
 def _get_synapse_team_member_url(team_id):
   return f'{configuration["synapse_team_member_list_endpoint"]}/{team_id}'
+
 
 
 def get_client(service):
@@ -148,7 +154,7 @@ def create_budget(synapse_id, team):
   budget_amount = team_budget_rules['amount']
   budget_period = team_budget_rules['period']
   budget = {
-    'BudgetName': f'{BUDGET_NAME_PREFIX}{synapse_id}',
+    'BudgetName': _get_budget_name(synapse_id),
     'BudgetLimit': {
       'Amount': budget_amount,
       'Unit': 'USD'
@@ -184,7 +190,7 @@ def _create_budget_notification(synapse_id, threshold, admin_emails=None):
   be sent directly.
   '''
   budgets_client = get_client('budgets')
-  budget_name = f'{BUDGET_NAME_PREFIX}{synapse_id}'
+  budget_name = _get_budget_name(synapse_id)
   subscribers = []
   # add admin subscription through email if admin_emails were included
   if admin_emails:
@@ -214,7 +220,7 @@ def _create_budget_notification(synapse_id, threshold, admin_emails=None):
 
 def create_budget_notifications(synapse_id, team):
   '''Creates notifications for a particular budget'''
-  budget_name = f'{BUDGET_NAME_PREFIX}{synapse_id}'
+  budget_name = _get_budget_name(synapse_id)
   thresholds = TEAM_BUDGET_RULES['thresholds']
 
   for threshold in thresholds['notify_user_only']:
@@ -247,9 +253,17 @@ def create_budgets(user_ids_without_budget, teams_by_user_id):
 
 
 def delete_budgets(synapse_ids):
-  # TODO implement
+  budgets_client = get_client('budgets')
   budgets_removed = []
-  return ('Budgets removed for synapse_ids: '
+  for synapse_id in synapse_ids:
+    budget_name = _get_budget_name(synapse_id)
+    response = budgets_client.delete_budget(
+      AccountId=_get_account_id(),
+      BudgetName=budget_name
+      )
+    budgets_removed.append(synapse_id)
+
+  return ('Budgets removed for synapse ids: '
     f'{"none" if not budgets_removed else ", ".join(budgets_removed)}'
   )
 

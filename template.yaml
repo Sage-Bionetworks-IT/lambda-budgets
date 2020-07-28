@@ -25,10 +25,10 @@ Resources:
           SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
           AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
       Events:
-        OneMinute: # Trigger every minute
+        ThreeMinute: # Trigger every minute
           Type: Schedule
           Properties:
-            Schedule: rate(1 minute)
+            Schedule: rate(3 minutes)
         # FiveMinute: # Trigger every five minutes
         #   Type: Schedule
         #   Properties:
