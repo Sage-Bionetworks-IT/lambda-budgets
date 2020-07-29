@@ -8,8 +8,8 @@ from botocore.stub import Stubber
 
 from budget import app
 
+@patch.dict('budget.app.configuration', {'account_id': '012345678901'})
 class TestCompareBudgetsAndUsers(unittest.TestCase):
-  fake_account_number = '123456789012'
   # these are very truncated mock responses containing as few fields as possible
   mock_budget_response_1 = {
     'Budgets': [
@@ -36,7 +36,7 @@ class TestCompareBudgetsAndUsers(unittest.TestCase):
       app.get_client = MagicMock(return_value=budgets_client)
       stubber.add_response('describe_budgets', self.mock_budget_response_1)
       user_id_list = ['3388489']
-      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(self.fake_account_number, user_id_list)
+      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(user_id_list)
       expected_without_budget = []
       expected_budgets_to_remove = []
       self.assertCountEqual(user_ids_without_budget, expected_without_budget)
@@ -49,7 +49,7 @@ class TestCompareBudgetsAndUsers(unittest.TestCase):
       app.get_client = MagicMock(return_value=budgets_client)
       stubber.add_response('describe_budgets', self.mock_budget_response_1)
       user_id_list = ['3388489', '1234567']
-      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(self.fake_account_number, user_id_list)
+      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(user_id_list)
       expected_without_budget = ['1234567']
       expected_budgets_to_remove = []
       self.assertCountEqual(user_ids_without_budget, expected_without_budget)
@@ -62,7 +62,7 @@ class TestCompareBudgetsAndUsers(unittest.TestCase):
       app.get_client = MagicMock(return_value=budgets_client)
       stubber.add_response('describe_budgets', self.mock_budget_response_2)
       user_id_list = ['3388489']
-      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(self.fake_account_number, user_id_list)
+      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(user_id_list)
       expected_without_budget = []
       expected_budgets_to_remove = ['1234567']
       self.assertCountEqual(user_ids_without_budget, expected_without_budget)
@@ -75,7 +75,7 @@ class TestCompareBudgetsAndUsers(unittest.TestCase):
       # response includes a budget that uses a different naming convention
       stubber.add_response('describe_budgets', self.mock_budget_response_3)
       user_id_list = ['3388489']
-      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(self.fake_account_number, user_id_list)
+      user_ids_without_budget, budgets_to_remove = app.compare_budgets_and_users(user_id_list)
       expected_without_budget = []
       # the non-service-catalog budget should not show up in this list
       expected_budgets_to_remove = []

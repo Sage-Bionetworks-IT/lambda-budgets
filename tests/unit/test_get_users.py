@@ -1,17 +1,24 @@
 import json
 import unittest
+from unittest.mock import patch, MagicMock
 
 from budget import app
 import requests
 import responses
 
 
+@patch.dict('budget.app.configuration',
+  {
+    'account_id': '012345678901',
+    'synapse_team_member_list_endpoint': 'http://endpoint_placeholder'
+  }
+)
 class TestGetUsers(unittest.TestCase):
 
   def test_get_users(self):
     teams = ['12345']
     with responses.RequestsMock() as request_mocker:
-      synapse_url = f'{app.SYNAPSE_TEAM_MEMBER_URL}/{teams[0]}'
+      synapse_url = app._get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         synapse_url,
@@ -25,7 +32,7 @@ class TestGetUsers(unittest.TestCase):
         status=200,
         content_type='application/json'
       )
-      result = app.get_users_by_team(teams)
+      result = app.get_users(teams)
     expected = { '8901234': ['12345'] }
     self.assertDictEqual(result, expected)
 
@@ -34,7 +41,7 @@ class TestGetUsers(unittest.TestCase):
     teams = ['12345', '67890']
     with responses.RequestsMock() as request_mocker:
       team_id = teams[0]
-      team_url_0 = f'{app.SYNAPSE_TEAM_MEMBER_URL}/{teams[0]}'
+      team_url_0 = app._get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         team_url_0,
@@ -48,7 +55,7 @@ class TestGetUsers(unittest.TestCase):
         status=200,
         content_type='application/json'
       )
-      team_url_1 = f'{app.SYNAPSE_TEAM_MEMBER_URL}/{teams[1]}'
+      team_url_1 = app._get_synapse_team_member_url(teams[1])
       request_mocker.add(
         responses.GET,
         team_url_1,
@@ -62,7 +69,7 @@ class TestGetUsers(unittest.TestCase):
         status=200,
         content_type='application/json'
       )
-      result = app.get_users_by_team(teams)
+      result = app.get_users(teams)
     expected = { '8901234': ['12345'], '2345678': ['67890']}
     self.assertDictEqual(result, expected)
 
@@ -71,11 +78,11 @@ class TestGetUsers(unittest.TestCase):
     teams = ['something_invalid']
     with responses.RequestsMock() as request_mocker, \
       self.assertRaises(requests.exceptions.HTTPError) as exception_manager:
-      team_members_url = f'{app.SYNAPSE_TEAM_MEMBER_URL}/{teams[0]}'
+      team_members_url = app._get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         team_members_url,
         status=404)
-      result = app.get_users_by_team(teams)
+      result = app.get_users(teams)
     expected_error = f'404 Client Error: Not Found for url: {team_members_url}'
     self.assertEqual(str(exception_manager.exception), expected_error)

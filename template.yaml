@@ -6,6 +6,11 @@ Globals:
   Function:
     Timeout: 30
 
+Parameters:
+  SynapseTeamMemberListEndpoint:
+    Description: 'Endpoint to retrieve member list for a particular Synapse team'
+    Type: String
+
 Resources:
   BudgetMakerFunction:
     Type: AWS::Serverless::Function
@@ -14,11 +19,20 @@ Resources:
       Handler: app.lambda_handler
       Runtime: python3.6
       Role: !GetAtt BudgetMakerFunctionRole.Arn
+      Environment:
+        Variables:
+          NOTIFICATION_TOPIC_ARN: !Ref BudgetMakerNotificationTopic
+          SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
+          AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
       Events:
-        FiveMinute: # Trigger every five minutes
+        OneMinute: # Trigger every minute
           Type: Schedule
           Properties:
-            Schedule: rate(5 minute)
+            Schedule: rate(1 minute)
+        # FiveMinute: # Trigger every five minutes
+        #   Type: Schedule
+        #   Properties:
+        #     Schedule: rate(5 minutes)
 
   BudgetMakerFunctionRole:
     Type: AWS::IAM::Role
@@ -34,17 +48,59 @@ Resources:
               - sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - !Ref BudgetMakerFunctionPolicy
+
+  BudgetMakerFunctionPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: BudgetReadWrite
+            Effect: 'Allow'
+            Action:
+              - budgets:ViewBudget
+              - budgets:ModifyBudget
+            Resource: '*'
+
+  BudgetMakerNotificationTopic:
+    Type: AWS::SNS::Topic
+
+  BudgetMakerNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: BudgetNotificationPublication
+          Effect: Allow
+          Principal:
+            Service: 'budgets.amazonaws.com'
+          Action: sns:Publish
+          Resource: '*'
+      Topics:
+        - !Ref BudgetMakerNotificationTopic
 
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  # HelloWorldApi:
-  #   Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-  #   Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  BudgetFunctionArn:
-    Description: "Budget-making Lambda Function ARN"
+  BudgetMakerFunctionArn:
+    Description: 'Budget-making Lambda Function ARN'
     Value: !GetAtt BudgetMakerFunction.Arn
-  BudgetFunctionRoleArn:
-    Description: "IAM Role created for Budget-making function"
+    Export:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}-BudgetMakerFunctionArn'
+  BudgetMakerFunctionRoleArn:
+    Description: 'IAM Role created for Budget-making function'
     Value: !GetAtt BudgetMakerFunctionRole.Arn
+    Export:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}-BudgetMakerFunctionRoleArn'
+  BudgetMakerFunctionPolicyArn:
+    Value: !Ref BudgetMakerFunctionPolicy
+    Export:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}-BudgetMakerFunctionPolicyArn'
+  BudgetMakerNotificationTopicArn:
+    Value: !Ref 'BudgetMakerNotificationTopic'
+    Export:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}-BudgetMakerNotificationTopicArn'
+  BudgetMakerNotificationTopicPolicyArn:
+    Value: !Ref 'BudgetMakerNotificationTopicPolicy'
+    Export:
+      Name: !Sub '${AWS::Region}-${AWS::StackName}-BudgetMakerNotificationTopicPolicyArn'
