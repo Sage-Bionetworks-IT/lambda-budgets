@@ -1,0 +1,9 @@
+{
+  "BudgetMakerFunction": {
+    "AWS_ACCOUNT_ID": "465877038949",
+    "BUDGET_RULES_FILE_PATH": "budget/config/scipooldev.yaml",
+    "NOTIFICATION_TOPIC_ARN": "arn:aws:sns:us-east-1:465877038949:lambda-budgets-BudgetMakerNotificationTopic-VVN7FJOU5R1",
+    "SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT": "https://repo-prod.prod.sagebase.org/repo/v1/teamMembers",
+    "THRESHOLDS_FILE_PATH": "budget/config/thresholds.yaml"
+  }
+}

@@ -9,8 +9,16 @@ from botocore.stub import Stubber, ANY
 from budget import app
 
 
-@patch('budget.app._get_account_id', MagicMock(return_value='012345678901'))
 class TestDeleteBudgets(unittest.TestCase):
+
+  def setUp(self):
+    app.configuration = MagicMock()
+    app.configuration.account_id = '012345678901'
+
+
+  def tearDown(self):
+    app.configuration = None
+
 
   def test_no_budgets_to_delete(self):
     no_budgets_to_remove = []

@@ -22,8 +22,11 @@ $ sam build --use-container
 
 ### Run locally
 
+Where `my-profile` is an AWS profile with the correct permissions, and you've
+edited the `sam-local-envvars.json` file to have meaningful values
+for the required environment variables.
 ```shell script
-$ sam local invoke BudgetMakerFunction --event events/event.json
+$ sam local invoke BudgetMakerFunction --event events/event.json --profile my-profile -n sam-local-envvars.json
 ```
 
 ### Run unit tests

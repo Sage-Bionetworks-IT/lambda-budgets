@@ -10,10 +10,10 @@ class TestHandler(unittest.TestCase):
   # This test only looks at how the success message is put together
   # for the return value. All the functions it calls have their own tests.
   def test_handler_happy_path(self):
-    with patch('budget.app._set_configuration') as config_mock, \
+    with patch('budget.app.Config') as config_mock, \
       patch('budget.app.get_users',
-        MagicMock(return_value={})) as users_mock, \
-      patch('budget.app.check_user_duplicates',
+      MagicMock(return_value={})) as users_mock, \
+        patch('budget.app.check_user_duplicates',
         MagicMock(return_value='')) as dupe_mock, \
       patch('budget.app.compare_budgets_and_users',
         MagicMock(return_value=([],[]))) as compare_mock, \
@@ -34,7 +34,6 @@ class TestHandler(unittest.TestCase):
         'Budgets removed for synapse ids: 3406211'
       )}
     self.assertEqual(result, expected)
-    config_mock.assert_called_once()
     users_mock.assert_called_once()
     dupe_mock.assert_called_once()
     compare_mock.assert_called_once()
@@ -49,6 +48,6 @@ class TestHandler(unittest.TestCase):
       'error': (
         'Lambda configuration error: missing environment variable '
         'AWS_ACCOUNT_ID'
-      )
+        )
     }
     self.assertEqual(result, expected)

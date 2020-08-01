@@ -11,19 +11,33 @@ Parameters:
     Description: 'Endpoint to retrieve member list for a particular Synapse team'
     Type: String
 
+Mappings:
+  Accounts:
+    '237179673806':
+      BudgetRulesFileName: 'scipoolprod'
+    '465877038949':
+      BudgetRulesFileName: 'scipooldev'
+
 Resources:
   BudgetMakerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: budget/
-      Handler: app.lambda_handler
-      Runtime: python3.6
+      CodeUri: .
+      Handler: budget.app.lambda_handler
+      Runtime: python3.7
       Role: !GetAtt BudgetMakerFunctionRole.Arn
       Environment:
         Variables:
           NOTIFICATION_TOPIC_ARN: !Ref BudgetMakerNotificationTopic
           SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
           AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
+          BUDGET_RULES_FILE_PATH: !Sub
+            - 'budget/config/${FileName}.yaml'
+            - FileName: !FindInMap
+              - Accounts
+              - !Ref 'AWS::AccountId'
+              - BudgetRulesFileName
+          THRESHOLDS_FILE_PATH: 'budget/config/thresholds.yaml'
       Events:
         ThreeMinute: # Trigger every minute
           Type: Schedule

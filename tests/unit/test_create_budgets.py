@@ -9,8 +9,16 @@ from botocore.stub import Stubber, ANY
 from budget import app
 
 
-@patch.dict('budget.app.configuration', {'account_id': '012345678901'})
 class TestCreateBudgets(unittest.TestCase):
+
+  def setUp(self):
+    app.configuration = MagicMock()
+    app.configuration.account_id = '012345678901'
+
+
+  def tearDown(self):
+    app.configuration = None
+
 
   def test_create_budgets_no_new_users(self):
     no_new_users = []
@@ -24,8 +32,8 @@ class TestCreateBudgets(unittest.TestCase):
 
   @patch('budget.app.create_budget', MagicMock(return_value={}))
   @patch('budget.app.create_budget_notifications', MagicMock(return_value={}))
-  @patch.dict('budget.app.TEAM_BUDGET_RULES', {'teams': {'12345': {}}})
   def test_create_budgets_some_users(self):
+    app.configuration.budget_rules = {'teams': {'12345': {}}}
     new_users = ['3406211', '3388489']
     teams_by_user_id = {'3406211': ['12345'], '3388489': ['12345']}
     result = app.create_budgets(new_users, teams_by_user_id)
@@ -35,10 +43,10 @@ class TestCreateBudgets(unittest.TestCase):
     self.assertEqual(result, expected)
 
 
-  @patch.dict('budget.app.TEAM_BUDGET_RULES', {
-    'teams':{'12345': {'amount': '100','period': 'ANNUALLY'}}
-  })
   def test_create_budget(self):
+    app.configuration.budget_rules = {
+      'teams':{'12345': {'amount': '100','period': 'ANNUALLY'}}
+    }
     synapse_id = '3388489'
     team = '12345'
     budgets_client = boto3.client('budgets')
@@ -76,6 +84,15 @@ class TestCreateBudgets(unittest.TestCase):
 
 
   def test_create_budget_no_team_rules(self):
+    app.configuration.budget_rules = {
+      'teams': {
+        '12345': {
+          'amount': '100',
+          'period': 'ANNUALLY',
+          'community_manager_emails': []
+        }
+      }
+    }
     synapse_id = '3388489'
     team = 'foo'
     with self.assertRaises(ValueError) as context_manager:
@@ -84,16 +101,21 @@ class TestCreateBudgets(unittest.TestCase):
     self.assertEqual(str(context_manager.exception), expected_error)
 
 
-  @patch.dict('budget.app.TEAM_BUDGET_RULES', {
-    'teams': {
-      '12345': {
-        'amount': '100',
-        'period': 'ANNUALLY',
-        'community_manager_emails': []
+  def test_create_budget_notifications_makes_expected_call_types(self):
+    app.configuration.budget_rules = {
+      'teams': {
+        '12345': {
+          'amount': '100',
+          'period': 'ANNUALLY',
+          'community_manager_emails': []
+        }
       }
     }
-  })
-  def test_create_budget_notifications_makes_expected_call_types(self):
+    app.configuration.thresholds = {
+      'notify_user_only': [25.0, 50.0, 80.0],
+      'notify_admins_too': [90.0, 100.0, 110.0]
+    }
+
     synapse_id = '3388489'
     team = '12345'
     with patch('budget.app._create_budget_notification') as mock:
@@ -110,11 +132,11 @@ class TestCreateBudgets(unittest.TestCase):
 
 
   def test_create_budget_notification_user_only(self):
-    budgets_client = boto3.client('budgets')
     fake_topic_arn = 'arn:aws:sns:us-east-1:123456789012:mystack-mytopic-NZJ5JSMVGFIE'
-    with Stubber(budgets_client) as stubber, \
-      patch.dict('budget.app.configuration',
-        {'notification_topic_arn': fake_topic_arn}):
+    app.configuration.notification_topic_arn = fake_topic_arn
+    budgets_client = boto3.client('budgets')
+
+    with Stubber(budgets_client) as stubber:
       app.get_client = MagicMock(return_value=budgets_client)
       # user only
       expected_params = {
