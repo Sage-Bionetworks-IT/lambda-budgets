@@ -30,8 +30,9 @@ class TestCreateBudgets(unittest.TestCase):
     self.assertEqual(result, expected)
 
 
+  @patch('budget.app.create_budget_definition', MagicMock(return_value={}))
+  @patch('budget.app.create_notification_definitions', MagicMock(return_value=[]))
   @patch('budget.app.create_budget', MagicMock(return_value={}))
-  @patch('budget.app.create_budget_notifications', MagicMock(return_value={}))
   def test_create_budgets_some_users(self):
     app.configuration.budget_rules = {'teams': {'12345': {}}}
     new_users = ['3406211', '3388489']
@@ -43,48 +44,40 @@ class TestCreateBudgets(unittest.TestCase):
     self.assertEqual(result, expected)
 
 
-  def test_create_budget(self):
+  def test_create_budget_definition(self):
     app.configuration.budget_rules = {
       'teams':{'12345': {'amount': '100','period': 'ANNUALLY'}}
     }
     app.configuration.end_user_role_name = 'ServiceCatalogEndusers'
     synapse_id = '3388489'
     team = '12345'
-    budgets_client = boto3.client('budgets')
-    with Stubber(budgets_client) as stubber:
-      app.get_client = MagicMock(return_value=budgets_client)
-      expected_params = {
-        'AccountId': '012345678901',
-        'Budget': {
-          'BudgetName': 'service-catalog_3388489',
-          'BudgetLimit': {
-            'Amount': '100',
-            'Unit': 'USD'
-          },
-          'CostFilters': {
-            'TagKeyValue': [
-              (
-                'aws:servicecatalog:provisioningPrincipalArn$arn:aws:sts::'
-                '012345678901:assumed-role/ServiceCatalogEndusers/3388489'
-              )
-            ]
-          },
-          'CostTypes': {
-            'IncludeRefund': False,
-            'IncludeCredit': False
-          },
-          'TimeUnit': 'ANNUALLY',
-          'BudgetType': 'COST'
-        }
-      }
-      # verify that the boto3 client will be called with the expected values
-      stubber.add_response('create_budget', {}, expected_params)
-      result = app.create_budget(synapse_id, team)
-      expected = {}
-      self.assertEqual(result, expected)
+    result = app.create_budget_definition(synapse_id, team)
+    expected = {
+      'BudgetName': 'service-catalog_3388489',
+      'BudgetLimit': {
+        'Amount': '100',
+        'Unit': 'USD'
+      },
+      'CostFilters': {
+        'TagKeyValue': [
+          (
+            'aws:servicecatalog:provisioningPrincipalArn$arn:aws:sts::'
+            '012345678901:assumed-role/ServiceCatalogEndusers/3388489'
+          )
+        ]
+      },
+      'CostTypes': {
+        'IncludeRefund': False,
+        'IncludeCredit': False
+      },
+      'TimeUnit': 'ANNUALLY',
+      'BudgetType': 'COST'
+    }
+
+    self.assertDictEqual(result, expected)
 
 
-  def test_create_budget_no_team_rules(self):
+  def test_create_budget_def_no_team_rules(self):
     app.configuration.budget_rules = {
       'teams': {
         '12345': {
@@ -97,12 +90,12 @@ class TestCreateBudgets(unittest.TestCase):
     synapse_id = '3388489'
     team = 'foo'
     with self.assertRaises(ValueError) as context_manager:
-      app.create_budget(synapse_id, team)
+      app.create_budget_definition(synapse_id, team)
     expected_error = 'No budget rules available for team foo'
     self.assertEqual(str(context_manager.exception), expected_error)
 
 
-  def test_create_budget_notifications_makes_expected_call_types(self):
+  def test_create_notification_definitions_makes_expected_call_types(self):
     app.configuration.budget_rules = {
       'teams': {
         '12345': {
@@ -119,8 +112,8 @@ class TestCreateBudgets(unittest.TestCase):
 
     synapse_id = '3388489'
     team = '12345'
-    with patch('budget.app._create_budget_notification') as mock:
-      app.create_budget_notifications(synapse_id, team)
+    with patch('budget.app._create_notification_definition') as mock:
+      app.create_notification_definitions(synapse_id, team)
     expected = [
       call('3388489', 25.0),
       call('3388489', 50.0),
@@ -132,43 +125,67 @@ class TestCreateBudgets(unittest.TestCase):
     self.assertCountEqual(mock.mock_calls, expected)
 
 
-  def test_create_budget_notification_user_only(self):
+  def test_create_notification_definition(self):
     fake_topic_arn = 'arn:aws:sns:us-east-1:123456789012:mystack-mytopic-NZJ5JSMVGFIE'
     app.configuration.notification_topic_arn = fake_topic_arn
-    budgets_client = boto3.client('budgets')
 
+    # user only
+    synapse_id = '3388489'
+    threshold = 25.0
+    result = app._create_notification_definition(synapse_id, threshold)
+    expected = {
+      'Notification': {
+          'NotificationType': 'ACTUAL',
+          'ComparisonOperator': 'GREATER_THAN',
+          'Threshold': 25.0,
+          'ThresholdType': 'PERCENTAGE',
+          'NotificationState': 'ALARM'
+      },
+      'Subscribers': [{
+        'SubscriptionType': 'SNS',
+        'Address': fake_topic_arn
+      }]
+    }
+    self.assertEqual(result, expected)
+
+    # now with admins
+    fake_admin_email = 'jane.doe@sagebase.org'
+    expected['Subscribers'].insert(0, {
+        'SubscriptionType': 'EMAIL',
+        'Address': fake_admin_email
+      })
+    result = app._create_notification_definition(
+      synapse_id, threshold, admin_emails=[fake_admin_email]
+      )
+    self.assertEqual(result, expected)
+
+
+  def test_create_budget(self):
+    app.configuration.budget_rules = {
+      'teams': {
+        '12345': {
+          'amount': '100',
+          'period': 'ANNUALLY',
+          'community_manager_emails': [ 'sc-support@sagebase.org' ]
+        }
+      }
+    }
+    synapse_id = '3388489'
+    team = '12345'
+    budget_definition = app.create_budget_definition(synapse_id, team)
+    notification_definitions = app.create_notification_definitions(synapse_id, team)
+    budgets_client = boto3.client('budgets')
     with Stubber(budgets_client) as stubber:
       app.get_client = MagicMock(return_value=budgets_client)
-      # user only
       expected_params = {
         'AccountId': '012345678901',
-        'BudgetName': 'service-catalog_3388489',
-        'Notification': {
-            'NotificationType': 'ACTUAL',
-            'ComparisonOperator': 'GREATER_THAN',
-            'Threshold': 25.0,
-            'ThresholdType': 'PERCENTAGE',
-            'NotificationState': 'ALARM'
-        },
-        'Subscribers': [{
-          'SubscriptionType': 'SNS',
-          'Address': fake_topic_arn
-        }]
+        'Budget': budget_definition,
+        'NotificationsWithSubscribers': notification_definitions
       }
       # verify that the boto3 client will be called with the expected values
-      stubber.add_response('create_notification', {}, expected_params)
-      synapse_id = '3388489'
-      threshold = 25.0
-      result = app._create_budget_notification(synapse_id, threshold)
-      expected = {}
-      self.assertEqual(result, expected)
-      # now with admins
-      fake_admin_email = 'jane.doe@sagebase.org'
-      expected_params['Subscribers'].insert(0, {
-          'SubscriptionType': 'EMAIL',
-          'Address': fake_admin_email
-        })
-      stubber.add_response('create_notification', {}, expected_params)
-      result = app._create_budget_notification(synapse_id, threshold, admin_emails=[fake_admin_email])
+      # boto3 also silently verifies that what is submitted follows
+      # the expected schema even when stubber is used
+      stubber.add_response('create_budget', {}, expected_params)
+      result = app.create_budget(budget_definition, notification_definitions)
       expected = {}
       self.assertEqual(result, expected)
