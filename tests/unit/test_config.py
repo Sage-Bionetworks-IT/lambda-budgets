@@ -90,7 +90,6 @@ class TestConfig(unittest.TestCase):
         }
       }
     }
-    # this
     Config().budget_rules = budget_rules
 
 
@@ -109,7 +108,7 @@ class TestConfig(unittest.TestCase):
 
 
   @patch.object(Config, "__init__", lambda x: None)
-  def test_get_budget_rules_empty_team(self):
+  def test_budget_rules_setter_empty_team(self):
     budget_rules = {
       'teams': {
         '3412821': {}
@@ -126,9 +125,26 @@ class TestConfig(unittest.TestCase):
     print(str(context_manager.exception))
     self.assertTrue(expected in str(context_manager.exception))
 
+  @patch.object(Config, "__init__", lambda x: None)
+  def test_budget_rules_setter_missing_manager(self):
+    budget_rules = {
+      'teams': {
+        '3412821': {
+          'amount': '10',
+          'period': 'ANNUALLY',
+          'unit': 'USD',
+          'community_manager_emails': []
+        }
+      }
+    }
+    with self.assertRaises(Exception) as context_manager:
+      Config().budget_rules = budget_rules
+    expected = "{'community_manager_emails': ['min length is 1']}"
+    print(str(context_manager.exception))
+    self.assertTrue(expected in str(context_manager.exception))
 
   @patch.object(Config, "__init__", lambda x: None)
-  def test_get_thresholds_happy(self):
+  def test_thresholds_setter_happy(self):
     thresholds = {
       'notify_user_only': [50.0],
       'notify_admins_too': [100.0]
@@ -137,7 +153,7 @@ class TestConfig(unittest.TestCase):
 
 
   @patch.object(Config, "__init__", lambda x: None)
-  def test_get_thresholds_all_empty(self):
+  def test_thresholds_setter_all_empty(self):
     thresholds = {}
     with self.assertRaises(Exception) as context_manager:
       Config().thresholds = thresholds
@@ -150,7 +166,7 @@ class TestConfig(unittest.TestCase):
 
 
   @patch.object(Config, "__init__", lambda x: None)
-  def test_get_thresholds_empty_list(self):
+  def test_thresholds_setter_empty_list(self):
     thresholds = {
       'notify_user_only': [],
       'notify_admins_too': [100.0]

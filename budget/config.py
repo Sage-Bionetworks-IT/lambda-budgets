@@ -27,6 +27,7 @@ class Config:
           },
           'community_manager_emails': {
             'type': 'list',
+            'minlength': 1,
             'schema': {
               'type': 'string'
             }

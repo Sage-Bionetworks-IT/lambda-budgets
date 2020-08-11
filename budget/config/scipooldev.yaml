@@ -4,4 +4,4 @@ teams:
     amount: '10'
     period: ANNUALLY
     unit: USD
-    community_manager_emails: []
+    community_manager_emails: ['someone@example.org']
