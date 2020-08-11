@@ -64,6 +64,7 @@ class Config:
       'SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT'
       )
     self._notification_topic_arn = Config._get_env_var('NOTIFICATION_TOPIC_ARN')
+    self._end_user_role_name = Config._get_env_var('END_USER_ROLE_NAME')
     self.budget_rules = Config._get_config_file(
       Config._get_env_var('BUDGET_RULES_FILE_PATH')
       )
@@ -96,6 +97,16 @@ class Config:
     for the purpose of sending notifications to users
     '''
     return self._notification_topic_arn
+
+
+  @property
+  def end_user_role_name(self):
+    '''Name of the AWS IAM role
+
+    Name of the role used to access the Service Catalog by users that
+    require a budget made
+    '''
+    return self._end_user_role_name
 
 
   @property

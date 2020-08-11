@@ -10,6 +10,10 @@ Parameters:
   SynapseTeamMemberListEndpoint:
     Description: 'Endpoint to retrieve member list for a particular Synapse team'
     Type: String
+  EndUserRoleName:
+    Description: 'The name of the AWS IAM role used to access the Service Catalog'
+    Type: String
+    Default: 'ServiceCatalogExternalEndusers'
 
 Mappings:
   Accounts:
@@ -38,6 +42,7 @@ Resources:
               - !Ref 'AWS::AccountId'
               - BudgetRulesFileName
           THRESHOLDS_FILE_PATH: 'budget/config/thresholds.yaml'
+          END_USER_ROLE_NAME: !Ref EndUserRoleName
       Events:
         ThreeMinute: # Trigger every minute
           Type: Schedule

@@ -123,7 +123,8 @@ def create_budget(synapse_id, team):
       'TagKeyValue': [
         (
           'aws:servicecatalog:provisioningPrincipalArn$arn:aws:sts::'
-          f'{configuration.account_id}:assumed-role/ServiceCatalogEndusers/{synapse_id}'
+          f'{configuration.account_id}:assumed-role/'
+          f'{configuration.end_user_role_name}/{synapse_id}'
         )
       ]
     },

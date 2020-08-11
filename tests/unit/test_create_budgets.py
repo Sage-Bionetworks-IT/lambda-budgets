@@ -47,6 +47,7 @@ class TestCreateBudgets(unittest.TestCase):
     app.configuration.budget_rules = {
       'teams':{'12345': {'amount': '100','period': 'ANNUALLY'}}
     }
+    app.configuration.end_user_role_name = 'ServiceCatalogEndusers'
     synapse_id = '3388489'
     team = '12345'
     budgets_client = boto3.client('budgets')
