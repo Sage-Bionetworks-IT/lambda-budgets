@@ -148,7 +148,7 @@ class Config:
   def _get_config_file(filepath):
     try:
       with open(filepath) as config_file:
-        output = yaml.full_load(config_file)
+        output = yaml.safe_load(config_file)
     except yaml.YAMLError as e:
       error_message = (
         'There was an error while parsing the config file at '
