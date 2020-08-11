@@ -22,9 +22,13 @@ $ sam build --use-container
 
 ### Run locally
 
-Where `my-profile` is an AWS profile with the correct permissions, and you've
-edited the `sam-local-envvars.json` file to have meaningful values
-for the required environment variables.
+Run the command below, where `my-profile` is an AWS profile with the correct
+permissions, and you've edited the `sam-local-envvars.json` file to have
+meaningful values for the required environment variables. The example file
+`sam-local-envvars.json` is at the root of this project; you can also find the
+required environment variables in the lambda function definition in
+`template.yaml`.
+
 ```shell script
 $ sam local invoke BudgetMakerFunction --event events/event.json --profile my-profile -n sam-local-envvars.json
 ```
