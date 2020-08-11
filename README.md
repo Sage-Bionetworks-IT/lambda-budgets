@@ -14,6 +14,20 @@ information see the [pipenv docs](https://pipenv.pypa.io/en/latest/).
 After activating the virtual environment, run `pre-commit install` to install
 the [pre-commit](https://pre-commit.com/) git hook.
 
+#### Environment Variables
+The lambda requires certain environment varibles:
+* `SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT`: the endpoint used to look up members of a synapse team.
+* `NOTIFICATION_TOPIC_ARN`: an SNS topic that the AWS budgets API will use to send notifications to users.
+* `AWS_ACCOUNT_ID`: the account where the lambda runs. This is used to construct role ARNs and work with budgets. The assumption is that there will be no cross-account budget creation.
+* `END_USER_ROLE_NAME`: the name of the AWS IAM role used to access the service catalog by users who require that a budget be made. The assumption is that there will only be one such named role.
+* `BUDGET_RULES_FILE_PATH`: the path to a file that contains the rules used for budget creation.
+* `THRESHOLDS_FILE_PATH`: the path to a file that defines threshold levels used to send notifications.
+
+The example file `sam-local-envvars.json` at the root of this project, which is
+useed to run the lambda function locally, contains examples of the environment
+variables. For a real deployment the variables are defined in `template.yaml`;
+some are derived or have defaults, but others require configuration.
+
 ### Create a local build
 
 ```shell script
@@ -24,10 +38,7 @@ $ sam build --use-container
 
 Run the command below, where `my-profile` is an AWS profile with the correct
 permissions, and you've edited the `sam-local-envvars.json` file to have
-meaningful values for the required environment variables. The example file
-`sam-local-envvars.json` is at the root of this project; you can also find the
-required environment variables in the lambda function definition in
-`template.yaml`.
+meaningful values for the required environment variables.
 
 ```shell script
 $ sam local invoke BudgetMakerFunction --event events/event.json --profile my-profile -n sam-local-envvars.json
