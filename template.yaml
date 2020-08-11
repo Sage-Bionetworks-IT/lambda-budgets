@@ -26,7 +26,7 @@ Resources:
   BudgetMakerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: .
+      CodeUri: budget/
       Handler: budget.app.lambda_handler
       Runtime: python3.7
       Role: !GetAtt BudgetMakerFunctionRole.Arn
