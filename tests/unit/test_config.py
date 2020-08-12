@@ -15,18 +15,25 @@ class TestConfig(unittest.TestCase):
     topic_arn = 'arn:aws:sns:us-east-1:123456789012:mystack-mytopic-NZJ5JSMVGFIE'
     end_user_role_name = 'SomeRoleName'
     parentdir = Path(__file__).parent
-    budget_rules_filepath = str(
-      (parentdir / 'config/budget_rules.yaml').resolve()
+    budget_rules = (
+      'teams:\n'
+      '  \'3412821\':\n'
+      '    amount: \'10\'\n'
+      '    period: ANNUALLY\n'
+      '    unit: USD\n'
+      '    community_manager_emails:\n'
+      '      - someone@example.org'
       )
-    thresholds_filepath = str(
-      (parentdir / 'config/thresholds.yaml').resolve()
+    thresholds = (
+      'notify_user_only: [25.0, 50.0, 80.0]\n'
+      'notify_admins_too: [90.0, 100.0, 110.0]'
       )
     with patch.dict('os.environ', {
       'AWS_ACCOUNT_ID': account_id,
       'SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT': endpoint,
       'NOTIFICATION_TOPIC_ARN': topic_arn,
-      'BUDGET_RULES_FILE_PATH': budget_rules_filepath,
-      'THRESHOLDS_FILE_PATH': thresholds_filepath,
+      'BUDGET_RULES': budget_rules,
+      'THRESHOLDS': thresholds,
       'END_USER_ROLE_NAME': end_user_role_name
       }):
       config = Config()
@@ -35,10 +42,8 @@ class TestConfig(unittest.TestCase):
     self.assertEqual(config.synapse_team_member_list_endpoint, endpoint)
     self.assertEqual(config.notification_topic_arn, topic_arn)
     self.assertEqual(config.end_user_role_name, end_user_role_name)
-    with open(budget_rules_filepath) as budget_rules_file:
-      expected_budget_rules = yaml.full_load(budget_rules_file)
-    with open(thresholds_filepath) as thresholds_file:
-      expected_thresholds = yaml.full_load(thresholds_file)
+    expected_budget_rules = yaml.safe_load(budget_rules)
+    expected_thresholds = yaml.safe_load(thresholds)
     self.assertDictEqual(config.budget_rules, expected_budget_rules)
     self.assertDictEqual(config.thresholds, expected_thresholds)
 
@@ -64,19 +69,19 @@ class TestConfig(unittest.TestCase):
     self.assertEqual(str(context_manager.exception), expected)
 
 
-  def test_get_config_file_valid_yaml(self):
-    filepath = Path(__file__).parent / 'config/happy_config_file.yaml'
-    result = Config._get_config_file(filepath)
+  def test_load_yaml_happy(self):
+    yaml_input = 'foo:\n  - bar'
+    result = Config._load_yaml(yaml_input)
     expected = {'foo': ['bar']}
     self.assertDictEqual(result, expected)
 
 
-  def test_get_config_file_invalid_yaml(self):
-    filepath = Path(__file__).parent / 'config/unhappy_config_file.yaml'
+  def test_load_yaml_invalid(self):
+    yaml_input = 'foo:\n  - \'bar"'
+    config_name = 'test'
     with self.assertRaises(Exception) as context_manager:
-      result = Config._get_config_file(filepath)
-    expected = ('There was an error while parsing the config file at '
-      f'{filepath}. Error details:')
+      result = Config._load_yaml(yaml_input, config_name=config_name)
+    expected = f'There was an error when attempting to load {config_name}'
     self.assertTrue(str(context_manager.exception).startswith(expected))
 
 

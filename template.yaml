@@ -14,13 +14,12 @@ Parameters:
     Description: 'The name of the AWS IAM role used to access the Service Catalog'
     Type: String
     Default: 'ServiceCatalogExternalEndusers'
-
-Mappings:
-  Accounts:
-    '237179673806':
-      BudgetRulesFileName: 'scipoolprod'
-    '465877038949':
-      BudgetRulesFileName: 'scipooldev'
+  Thresholds:
+    Description: 'Yaml string defining thresholds for budget notifications'
+    Type: String
+  BudgetRules:
+    Description: 'Yaml string defining rules for creating AWS budgets'
+    Type: String
 
 Resources:
   BudgetMakerFunction:
@@ -35,23 +34,14 @@ Resources:
           NOTIFICATION_TOPIC_ARN: !Ref BudgetMakerNotificationTopic
           SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
           AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
-          BUDGET_RULES_FILE_PATH: !Sub
-            - 'budget/config/${FileName}.yaml'
-            - FileName: !FindInMap
-              - Accounts
-              - !Ref 'AWS::AccountId'
-              - BudgetRulesFileName
-          THRESHOLDS_FILE_PATH: 'budget/config/thresholds.yaml'
+          BUDGET_RULES: !Ref BudgetRules
+          THRESHOLDS: !Ref Thresholds
           END_USER_ROLE_NAME: !Ref EndUserRoleName
       Events:
-        ThreeMinute: # Trigger every minute
+        FiveMinute: # Trigger every five minutes
           Type: Schedule
           Properties:
-            Schedule: rate(3 minutes)
-        # FiveMinute: # Trigger every five minutes
-        #   Type: Schedule
-        #   Properties:
-        #     Schedule: rate(5 minutes)
+            Schedule: rate(5 minutes)
 
   BudgetMakerFunctionRole:
     Type: AWS::IAM::Role

@@ -65,12 +65,8 @@ class Config:
       )
     self._notification_topic_arn = Config._get_env_var('NOTIFICATION_TOPIC_ARN')
     self._end_user_role_name = Config._get_env_var('END_USER_ROLE_NAME')
-    self.budget_rules = Config._get_config_file(
-      Config._get_env_var('BUDGET_RULES_FILE_PATH')
-      )
-    self.thresholds = Config._get_config_file(
-      Config._get_env_var('THRESHOLDS_FILE_PATH')
-      )
+    self.budget_rules = Config._load_budget_rules()
+    self.thresholds = Config._load_thresholds()
 
 
   def __str__(self):
@@ -156,19 +152,30 @@ class Config:
     return value
 
 
-  def _get_config_file(filepath):
+  def _load_yaml(yaml_string, config_name=None):
     try:
-      with open(filepath) as config_file:
-        output = yaml.safe_load(config_file)
+      output = yaml.safe_load(yaml_string)
     except yaml.YAMLError as e:
       error_message = (
-        'There was an error while parsing the config file at '
-        f'{filepath}. Error details: {e}'
-        )
+        f'There was an error when attempting to load {config_name}. '
+        f'Error details: {e}'
+      )
       raise Exception(error_message)
-
     return output
 
+
+  def _load_budget_rules():
+    return Config._load_yaml(
+      Config._get_env_var('BUDGET_RULES'),
+      'budget_rules'
+      )
+
+
+  def _load_thresholds():
+    return Config._load_yaml(
+      Config._get_env_var('THRESHOLDS'),
+      'thresholds'
+      )
 
   def _validate_config(schema, config):
     validator = Validator(schema)
