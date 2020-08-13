@@ -8,8 +8,18 @@ from botocore.stub import Stubber
 
 from budget import app
 
-@patch.dict('budget.app.configuration', {'account_id': '012345678901'})
+
 class TestCompareBudgetsAndUsers(unittest.TestCase):
+
+  def setUp(self):
+    app.configuration = MagicMock()
+    app.configuration.account_id = '012345678901'
+
+
+  def tearDown(self):
+    app.configuration = None
+
+
   # these are very truncated mock responses containing as few fields as possible
   mock_budget_response_1 = {
     'Budgets': [

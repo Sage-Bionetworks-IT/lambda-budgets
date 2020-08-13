@@ -7,18 +7,23 @@ import requests
 import responses
 
 
-@patch.dict('budget.app.configuration',
-  {
-    'account_id': '012345678901',
-    'synapse_team_member_list_endpoint': 'http://endpoint_placeholder'
-  }
-)
 class TestGetUsers(unittest.TestCase):
+
+  def setUp(self):
+    app.configuration = MagicMock()
+    app.configuration.account_id = '012345678901'
+    app.configuration.synapse_team_member_list_endpoint = 'http://endpoint_placeholder'
+    app.configuration.get_synapse_team_member_url = lambda team: f'{app.configuration.synapse_team_member_list_endpoint}/{team}'
+
+
+  def tearDown(self):
+    app.configuration = None
+
 
   def test_get_users(self):
     teams = ['12345']
     with responses.RequestsMock() as request_mocker:
-      synapse_url = app._get_synapse_team_member_url(teams[0])
+      synapse_url = app.configuration.get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         synapse_url,
@@ -41,7 +46,7 @@ class TestGetUsers(unittest.TestCase):
     teams = ['12345', '67890']
     with responses.RequestsMock() as request_mocker:
       team_id = teams[0]
-      team_url_0 = app._get_synapse_team_member_url(teams[0])
+      team_url_0 = app.configuration.get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         team_url_0,
@@ -55,7 +60,7 @@ class TestGetUsers(unittest.TestCase):
         status=200,
         content_type='application/json'
       )
-      team_url_1 = app._get_synapse_team_member_url(teams[1])
+      team_url_1 = app.configuration.get_synapse_team_member_url(teams[1])
       request_mocker.add(
         responses.GET,
         team_url_1,
@@ -78,7 +83,7 @@ class TestGetUsers(unittest.TestCase):
     teams = ['something_invalid']
     with responses.RequestsMock() as request_mocker, \
       self.assertRaises(requests.exceptions.HTTPError) as exception_manager:
-      team_members_url = app._get_synapse_team_member_url(teams[0])
+      team_members_url = app.configuration.get_synapse_team_member_url(teams[0])
       request_mocker.add(
         responses.GET,
         team_members_url,

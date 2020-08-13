@@ -1,6 +1,6 @@
 set -ex
 
-sam build
+sam build --use-container
 sam package --profile admincentral-cfn --template-file .aws-sam/build/template.yaml \
   --s3-bucket essentials-awss3lambdaartifactsbucket-x29ftznj6pqw \
   --output-template-file .aws-sam/build/lambda-budgets.yaml

@@ -10,29 +10,38 @@ Parameters:
   SynapseTeamMemberListEndpoint:
     Description: 'Endpoint to retrieve member list for a particular Synapse team'
     Type: String
+  EndUserRoleName:
+    Description: 'The name of the AWS IAM role used to access the Service Catalog'
+    Type: String
+    Default: 'ServiceCatalogExternalEndusers'
+  Thresholds:
+    Description: 'Yaml string defining thresholds for budget notifications'
+    Type: String
+  BudgetRules:
+    Description: 'Yaml string defining rules for creating AWS budgets'
+    Type: String
 
 Resources:
   BudgetMakerFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: budget/
-      Handler: app.lambda_handler
-      Runtime: python3.6
+      CodeUri: .
+      Handler: budget.app.lambda_handler
+      Runtime: python3.7
       Role: !GetAtt BudgetMakerFunctionRole.Arn
       Environment:
         Variables:
           NOTIFICATION_TOPIC_ARN: !Ref BudgetMakerNotificationTopic
           SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
           AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
+          BUDGET_RULES: !Ref BudgetRules
+          THRESHOLDS: !Ref Thresholds
+          END_USER_ROLE_NAME: !Ref EndUserRoleName
       Events:
-        OneMinute: # Trigger every minute
+        FiveMinute: # Trigger every five minutes
           Type: Schedule
           Properties:
-            Schedule: rate(1 minute)
-        # FiveMinute: # Trigger every five minutes
-        #   Type: Schedule
-        #   Properties:
-        #     Schedule: rate(5 minutes)
+            Schedule: rate(5 minutes)
 
   BudgetMakerFunctionRole:
     Type: AWS::IAM::Role
