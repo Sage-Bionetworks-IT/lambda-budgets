@@ -104,8 +104,12 @@ def compare_budgets_and_users(users):
   return user_ids_without_budget, budgets_to_remove
 
 
-def create_budget(synapse_id, team):
-  '''Creates an AWS budget for a synapse user id'''
+def create_budget_definition(synapse_id, team):
+  '''Creates an AWS budget definition for a synapse user id.
+
+  This is part of the payload that will be submitted through the boto3
+  client when creating an AWS budget.
+  '''
   log.debug(f'Creating budget for synapse user {synapse_id}, member of team {team}')
 
   team_budget_rules = configuration.budget_rules.get('teams').get(team)
@@ -113,7 +117,7 @@ def create_budget(synapse_id, team):
     raise ValueError(f'No budget rules available for team {team}')
   budget_amount = team_budget_rules['amount']
   budget_period = team_budget_rules['period']
-  budget = {
+  budget_definition = {
     'BudgetName': _get_budget_name(synapse_id),
     'BudgetLimit': {
       'Amount': budget_amount,
@@ -135,23 +139,20 @@ def create_budget(synapse_id, team):
     'TimeUnit': budget_period,
     'BudgetType': 'COST'
   }
-  budgets_client = get_client('budgets')
-  return budgets_client.create_budget(
-    AccountId=configuration.account_id,
-    Budget=budget
-    )
+  return budget_definition
 
 
-def _create_budget_notification(synapse_id, threshold, admin_emails=None):
+def _create_notification_definition(synapse_id, threshold, admin_emails=None):
   '''Creates a notification rule when the budget crosses a particular threshold.
 
   May have multiple recipients. User notifications are sent through SNS
   in order to send email to Synapse addresses, which cannot receive email
   unless sent through the Synapse system, but emails to administrators can
   be sent directly.
+
+  This is part of the payload that will be submitted through the boto3
+  client when creating an AWS budget.
   '''
-  budgets_client = get_client('budgets')
-  budget_name = _get_budget_name(synapse_id)
   subscribers = []
   # add admin subscription through email if admin_emails were included
   if admin_emails:
@@ -165,46 +166,64 @@ def _create_budget_notification(synapse_id, threshold, admin_emails=None):
     'Address': configuration.notification_topic_arn
     })
 
-  return budgets_client.create_notification(
-      AccountId=configuration.account_id,
-      BudgetName=budget_name,
-      Notification={
+  notification_definition = {
+    'Notification': {
           'NotificationType': 'ACTUAL',
           'ComparisonOperator': 'GREATER_THAN',
           'Threshold': threshold,
           'ThresholdType': 'PERCENTAGE',
           'NotificationState': 'ALARM'
       },
-      Subscribers=subscribers
-  )
+    'Subscribers': subscribers
+  }
+
+  return notification_definition
 
 
-def create_budget_notifications(synapse_id, team):
-  '''Creates notifications for a particular budget'''
-  budget_name = _get_budget_name(synapse_id)
+def create_notification_definitions(synapse_id, team):
+  '''Creates a set of notification rules for a particular budget'''
   thresholds = configuration.thresholds
+  notification_definitions = []
 
   for threshold in thresholds['notify_user_only']:
-    _create_budget_notification(
-      synapse_id,
-      threshold
+    notification_definitions.append(
+      _create_notification_definition(
+        synapse_id,
+        threshold
+      )
     )
 
+  admin_emails = configuration.budget_rules['teams'][team]['community_manager_emails']
   for threshold in thresholds['notify_admins_too']:
-    _create_budget_notification(
-      synapse_id,
-      threshold,
-      admin_emails=configuration.budget_rules['teams'][team]['community_manager_emails']
+    notification_definitions.append(
+      _create_notification_definition(
+        synapse_id,
+        threshold,
+        admin_emails=admin_emails
+      )
+    )
+
+  return notification_definitions
+
+
+def create_budget(budget_definition, notification_definitions):
+  '''Creates an AWS budget'''
+  budgets_client = get_client('budgets')
+  return budgets_client.create_budget(
+    AccountId=configuration.account_id,
+    Budget=budget_definition,
+    NotificationsWithSubscribers=notification_definitions
     )
 
 
 def create_budgets(user_ids_without_budget, teams_by_user_id):
-  '''Creates a budget for each synapse id'''
+  '''Creates an AWS budget for each synapse id'''
   new_budgets_created = []
   for synapse_id in user_ids_without_budget:
     team = teams_by_user_id[synapse_id][0]
-    create_budget(synapse_id, team)
-    create_budget_notifications(synapse_id, team)
+    budget_definition = create_budget_definition(synapse_id, team)
+    notification_definitions = create_notification_definitions(synapse_id, team)
+    create_budget(budget_definition, notification_definitions)
     new_budgets_created.append(synapse_id)
 
   return (
@@ -214,6 +233,7 @@ def create_budgets(user_ids_without_budget, teams_by_user_id):
 
 
 def delete_budgets(synapse_ids):
+  '''Deletes AWS budgets'''
   budgets_client = get_client('budgets')
   budgets_removed = []
   for synapse_id in synapse_ids:
