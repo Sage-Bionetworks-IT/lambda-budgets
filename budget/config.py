@@ -141,7 +141,7 @@ class Config:
 
 
   def get_synapse_team_member_url(self, team_id):
-    return f'{self.synapse_team_member_list_endpoint}/{team_id}'
+    return f'{self.synapse_team_member_list_endpoint}/{team_id}?limit=50'
 
 
   def _get_env_var(name):
