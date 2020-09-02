@@ -3,91 +3,54 @@ import unittest
 from unittest.mock import patch, MagicMock
 
 from budget import app
-import requests
-import responses
+import synapseclient
 
+
+team_id_to_team_member = {
+  '12345':[
+	  { "teamId": "12345", "member": { "ownerId": "1234567", "firstName": "Jane", "lastName": "Doe", "userName": "janedoe", "isIndividual": True}, "isAdmin": True },
+	   { "teamId": "12345", "member": {"ownerId": "8901234", "firstName": "John", "lastName": "Roe", "userName": "johnroe", "isIndividual": True}, "isAdmin": False}
+  ],
+  '67890':[
+      { "teamId": "67890", "member": { "ownerId": "5678901", "firstName": "Una", "lastName": "Smith", "userName": "unasmith", "isIndividual": True}, "isAdmin": True },
+      { "teamId": "67890", "member": {"ownerId": "2345678", "firstName": "Duo", "lastName": "Smith", "userName": "duosmith", "isIndividual": True}, "isAdmin": False}
+  ]
+}
+
+def mock_get_team_members(team_id):
+  if not team_id in team_id_to_team_member:
+  	raise ValueError("404 Client Error: Not Found")
+  return team_id_to_team_member[team_id]
 
 class TestGetUsers(unittest.TestCase):
 
   def setUp(self):
     app.configuration = MagicMock()
     app.configuration.account_id = '012345678901'
-    app.configuration.synapse_team_member_list_endpoint = 'http://endpoint_placeholder'
-    app.configuration.get_synapse_team_member_url = lambda team: f'{app.configuration.synapse_team_member_list_endpoint}/{team}'
-
 
   def tearDown(self):
     app.configuration = None
 
-
-  def test_get_users(self):
+  @patch('synapseclient.Synapse')
+  def test_get_users(self, MockSynapse):
+    MockSynapse.return_value.getTeamMembers=mock_get_team_members
     teams = ['12345']
-    with responses.RequestsMock() as request_mocker:
-      synapse_url = app.configuration.get_synapse_team_member_url(teams[0])
-      request_mocker.add(
-        responses.GET,
-        synapse_url,
-        body=json.dumps({
-          'totalNumberOfResults': 2,
-          'results':[
-            { "teamId": "12345", "member": { "ownerId": "1234567", "firstName": "Jane", "lastName": "Doe", "userName": "janedoe", "isIndividual": True}, "isAdmin": True },
-            { "teamId": "12345", "member": {"ownerId": "8901234", "firstName": "John", "lastName": "Roe", "userName": "johnroe", "isIndividual": True}, "isAdmin": False}
-          ]
-        }),
-        status=200,
-        content_type='application/json'
-      )
-      result = app.get_users(teams)
+    result = app.get_users(teams)
     expected = { '8901234': ['12345'] }
     self.assertDictEqual(result, expected)
-
-
-  def test_get_users_multiple_teams(self):
+    
+  @patch('synapseclient.Synapse')
+  def test_get_users_multiple_teams(self, MockSynapse):
+    MockSynapse.return_value.getTeamMembers=mock_get_team_members
     teams = ['12345', '67890']
-    with responses.RequestsMock() as request_mocker:
-      team_id = teams[0]
-      team_url_0 = app.configuration.get_synapse_team_member_url(teams[0])
-      request_mocker.add(
-        responses.GET,
-        team_url_0,
-        body=json.dumps({
-          'totalNumberOfResults': 2,
-          'results':[
-            { "teamId": "12345", "member": { "ownerId": "1234567", "firstName": "Jane", "lastName": "Doe", "userName": "janedoe", "isIndividual": True}, "isAdmin": True },
-            { "teamId": "12345", "member": {"ownerId": "8901234", "firstName": "John", "lastName": "Roe", "userName": "johnroe", "isIndividual": True}, "isAdmin": False}
-          ]
-        }),
-        status=200,
-        content_type='application/json'
-      )
-      team_url_1 = app.configuration.get_synapse_team_member_url(teams[1])
-      request_mocker.add(
-        responses.GET,
-        team_url_1,
-        body=json.dumps({
-          'totalNumberOfResults': 2,
-          'results':[
-            { "teamId": "67890", "member": { "ownerId": "5678901", "firstName": "Una", "lastName": "Smith", "userName": "unasmith", "isIndividual": True}, "isAdmin": True },
-            { "teamId": "67890", "member": {"ownerId": "2345678", "firstName": "Duo", "lastName": "Smith", "userName": "duosmith", "isIndividual": True}, "isAdmin": False}
-          ]
-        }),
-        status=200,
-        content_type='application/json'
-      )
-      result = app.get_users(teams)
+    result = app.get_users(teams)
     expected = { '8901234': ['12345'], '2345678': ['67890']}
     self.assertDictEqual(result, expected)
 
-
-  def test_get_users_response_error(self):
+  @patch('synapseclient.Synapse')
+  def test_get_users_response_error(self, MockSynapse):
+    MockSynapse.return_value.getTeamMembers=mock_get_team_members
     teams = ['something_invalid']
-    with responses.RequestsMock() as request_mocker, \
-      self.assertRaises(requests.exceptions.HTTPError) as exception_manager:
-      team_members_url = app.configuration.get_synapse_team_member_url(teams[0])
-      request_mocker.add(
-        responses.GET,
-        team_members_url,
-        status=404)
-      result = app.get_users(teams)
-    expected_error = f'404 Client Error: Not Found for url: {team_members_url}'
-    self.assertEqual(str(exception_manager.exception), expected_error)
+    with self.assertRaises(ValueError):
+    	app.get_users(teams)
+
