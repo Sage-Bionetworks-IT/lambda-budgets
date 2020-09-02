@@ -8,8 +8,8 @@ import synapseclient
 
 team_id_to_team_member = {
   '12345':[
-	  { "teamId": "12345", "member": { "ownerId": "1234567", "firstName": "Jane", "lastName": "Doe", "userName": "janedoe", "isIndividual": True}, "isAdmin": True },
-	   { "teamId": "12345", "member": {"ownerId": "8901234", "firstName": "John", "lastName": "Roe", "userName": "johnroe", "isIndividual": True}, "isAdmin": False}
+      { "teamId": "12345", "member": { "ownerId": "1234567", "firstName": "Jane", "lastName": "Doe", "userName": "janedoe", "isIndividual": True}, "isAdmin": True },
+       { "teamId": "12345", "member": {"ownerId": "8901234", "firstName": "John", "lastName": "Roe", "userName": "johnroe", "isIndividual": True}, "isAdmin": False}
   ],
   '67890':[
       { "teamId": "67890", "member": { "ownerId": "5678901", "firstName": "Una", "lastName": "Smith", "userName": "unasmith", "isIndividual": True}, "isAdmin": True },
@@ -19,7 +19,7 @@ team_id_to_team_member = {
 
 def mock_get_team_members(team_id):
   if not team_id in team_id_to_team_member:
-  	raise ValueError("404 Client Error: Not Found")
+      raise ValueError("404 Client Error: Not Found")
   return team_id_to_team_member[team_id]
 
 class TestGetUsers(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestGetUsers(unittest.TestCase):
     result = app.get_users(teams)
     expected = { '8901234': ['12345'] }
     self.assertDictEqual(result, expected)
-    
+
   @patch('synapseclient.Synapse')
   def test_get_users_multiple_teams(self, MockSynapse):
     MockSynapse.return_value.getTeamMembers=mock_get_team_members
@@ -52,5 +52,4 @@ class TestGetUsers(unittest.TestCase):
     MockSynapse.return_value.getTeamMembers=mock_get_team_members
     teams = ['something_invalid']
     with self.assertRaises(ValueError):
-    	app.get_users(teams)
-
+        app.get_users(teams)
