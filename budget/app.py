@@ -10,6 +10,8 @@ from budget.config import Config
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+synapseclient.core.cache.CACHE_ROOT_DIR = '/tmp/.synapseCache'
+
 BUDGET_NAME_PREFIX = 'service-catalog_'
 
 configuration = None
@@ -27,7 +29,6 @@ def get_users(teams):
 
   Returns a dictionary of users with a list of their team memberships
   '''
-  synapseclient.core.cache.CACHE_ROOT_DIR = '/tmp/.synapseCache'
   syn = synapseclient.Synapse()
   teams_by_user_id = {}
   for team_id in teams:
