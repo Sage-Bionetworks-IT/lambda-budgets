@@ -7,9 +7,6 @@ Globals:
     Timeout: 30
 
 Parameters:
-  SynapseTeamMemberListEndpoint:
-    Description: 'Endpoint to retrieve member list for a particular Synapse team'
-    Type: String
   EndUserRoleName:
     Description: 'The name of the AWS IAM role used to access the Service Catalog'
     Type: String
@@ -32,7 +29,6 @@ Resources:
       Environment:
         Variables:
           NOTIFICATION_TOPIC_ARN: !Ref BudgetMakerNotificationTopic
-          SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT: !Ref SynapseTeamMemberListEndpoint
           AWS_ACCOUNT_ID: !Ref 'AWS::AccountId'
           BUDGET_RULES: !Ref BudgetRules
           THRESHOLDS: !Ref Thresholds

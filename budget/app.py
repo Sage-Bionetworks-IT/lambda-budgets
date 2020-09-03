@@ -1,14 +1,16 @@
 import json
 import logging
 import traceback
+import synapseclient
 
 import boto3
 from botocore.exceptions import ClientError
 from budget.config import Config
-import requests
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+synapseclient.core.cache.CACHE_ROOT_DIR = '/tmp/.synapseCache'
 
 BUDGET_NAME_PREFIX = 'service-catalog_'
 
@@ -27,18 +29,13 @@ def get_users(teams):
 
   Returns a dictionary of users with a list of their team memberships
   '''
+  syn = synapseclient.Synapse()
   teams_by_user_id = {}
   for team_id in teams:
-    synapse_url = configuration.get_synapse_team_member_url(team_id)
-    response = requests.get(synapse_url)
-    if response.ok:
-      results = json.loads(response.text)['results']
-      user_ids = [
-        result['member']['ownerId']
-        for result in results if not result['isAdmin']
-      ]
-    else:
-      response.raise_for_status()
+    user_ids = [
+      result['member']['ownerId']
+      for result in syn.getTeamMembers(team_id) if not result['isAdmin']
+    ]
     for user_id in user_ids:
       if user_id in teams_by_user_id:
         teams_by_user_id[user_id].append(team_id)
