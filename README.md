@@ -27,6 +27,8 @@ used to run the lambda function locally, contains examples of the environment
 variables. For a real deployment the variables are defined in `template.yaml`;
 some are derived or have defaults, but others require configuration.
 
+Note: When the Lambda runs, `config.py` validates that the required parameters are present and, if not, stops the Lambda.
+
 ### Create a local build
 
 ```shell script
