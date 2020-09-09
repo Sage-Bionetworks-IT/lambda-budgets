@@ -3,7 +3,6 @@
     "AWS_ACCOUNT_ID": "465877038949",
     "BUDGET_RULES": "teams:\n  '3412821':\n    amount: '10'\n    period: ANNUALLY\n    unit: USD\n    community_manager_emails:\n      - someone@example.org",
     "NOTIFICATION_TOPIC_ARN": "arn:aws:sns:us-east-1:465877038949:lambda-budgets-BudgetMakerNotificationTopic-VVN7FJOU5R1",
-    "SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT": "https://repo-prod.prod.sagebase.org/repo/v1/teamMembers",
     "THRESHOLDS": "notify_user_only: [25.0, 50.0, 80.0]\nnotify_admins_too: [90.0, 100.0, 110.0]",
     "END_USER_ROLE_NAME": "ServiceCatalogEndusers"
   }

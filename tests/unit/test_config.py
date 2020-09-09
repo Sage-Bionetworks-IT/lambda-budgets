@@ -11,7 +11,6 @@ class TestConfig(unittest.TestCase):
 
   def test_init(self):
     account_id = '012345678901'
-    endpoint = 'http://endpoint_placeholder'
     topic_arn = 'arn:aws:sns:us-east-1:123456789012:mystack-mytopic-NZJ5JSMVGFIE'
     end_user_role_name = 'SomeRoleName'
     parentdir = Path(__file__).parent
@@ -30,7 +29,6 @@ class TestConfig(unittest.TestCase):
       )
     with patch.dict('os.environ', {
       'AWS_ACCOUNT_ID': account_id,
-      'SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT': endpoint,
       'NOTIFICATION_TOPIC_ARN': topic_arn,
       'BUDGET_RULES': budget_rules,
       'THRESHOLDS': thresholds,
@@ -39,7 +37,6 @@ class TestConfig(unittest.TestCase):
       config = Config()
 
     self.assertEqual(config.account_id, account_id)
-    self.assertEqual(config.synapse_team_member_list_endpoint, endpoint)
     self.assertEqual(config.notification_topic_arn, topic_arn)
     self.assertEqual(config.end_user_role_name, end_user_role_name)
     expected_budget_rules = yaml.safe_load(budget_rules)

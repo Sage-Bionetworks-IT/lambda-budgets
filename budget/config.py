@@ -60,9 +60,6 @@ class Config:
   def __init__(self):
 
     self._account_id = Config._get_env_var('AWS_ACCOUNT_ID')
-    self._synapse_team_member_list_endpoint = Config._get_env_var(
-      'SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT'
-      )
     self._notification_topic_arn = Config._get_env_var('NOTIFICATION_TOPIC_ARN')
     self._end_user_role_name = Config._get_env_var('END_USER_ROLE_NAME')
     self.budget_rules = Config._load_budget_rules()
@@ -77,12 +74,6 @@ class Config:
   def account_id(self):
     '''AWS account id'''
     return self._account_id
-
-
-  @property
-  def synapse_team_member_list_endpoint(self):
-    '''The endpoint used to look up members of a synapse team'''
-    return self._synapse_team_member_list_endpoint
 
 
   @property
@@ -138,10 +129,6 @@ class Config:
   def thresholds(self, candidate_thresholds):
     Config._validate_config(self._thresholds_schema, candidate_thresholds)
     self._thresholds = candidate_thresholds
-
-
-  def get_synapse_team_member_url(self, team_id):
-    return f'{self.synapse_team_member_list_endpoint}/{team_id}?limit=50'
 
 
   def _get_env_var(name):

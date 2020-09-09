@@ -16,7 +16,6 @@ the [pre-commit](https://pre-commit.com/) git hook.
 
 #### Environment Variables
 The lambda requires certain environment varibles:
-* `SYNAPSE_TEAM_MEMBER_LIST_ENDPOINT`: the endpoint used to look up members of a synapse team.
 * `NOTIFICATION_TOPIC_ARN`: an SNS topic that the AWS budgets API will use to send notifications to users.
 * `AWS_ACCOUNT_ID`: the account where the lambda runs. This is used to construct role ARNs and work with budgets. The assumption is that there will be no cross-account budget creation.
 * `END_USER_ROLE_NAME`: the name of the AWS IAM role used to access the service catalog by users who require that a budget be made. The assumption is that there will only be one such named role.
@@ -27,6 +26,8 @@ The example file `sam-local-envvars.json` at the root of this project, which is
 used to run the lambda function locally, contains examples of the environment
 variables. For a real deployment the variables are defined in `template.yaml`;
 some are derived or have defaults, but others require configuration.
+
+Note: When the Lambda runs, `config.py` validates that the required parameters are present and, if not, stops the Lambda.
 
 ### Create a local build
 
