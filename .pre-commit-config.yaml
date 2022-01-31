@@ -1,20 +1,26 @@
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v3.2.0
+  rev: v4.1.0
   hooks:
   - id: end-of-file-fixer
+    language_version: python3
   - id: trailing-whitespace
+    language_version: python3
   - id: check-ast
+    language_version: python3
 - repo: https://github.com/adrienverge/yamllint
-  rev: v1.24.2
+  rev: v1.26.3
   hooks:
   - id: yamllint
+    language_version: python3
 - repo: https://github.com/awslabs/cfn-python-lint
-  rev: v0.34.0
+  rev: v0.58.0
   hooks:
   - id: cfn-python-lint
     files: template\.(json|yml|yaml)$
+    language_version: python3
 - repo: https://github.com/Lucas-C/pre-commit-hooks
-  rev: v1.1.9
+  rev: v1.1.11
   hooks:
   - id: remove-tabs
+    language_version: python3
