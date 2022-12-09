@@ -9,7 +9,6 @@ pytest-mock = "~=3.3"
 responses = "~=0.20"
 requests-mock = "~=1.10"
 boto3 = "~=1.17"
-pre-commit = "~=2.7"
 
 [packages]
 synapseclient = "~=2.7"
